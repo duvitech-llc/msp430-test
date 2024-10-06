@@ -1,0 +1,76 @@
+name: Build Release 
+
+on:
+    push:
+      tags:
+        - 'v*'   # This triggers when a tag starting with 'v' is pushed (e.g., v1.0.0)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    
+    # Step 1: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Step 2: Show working directory
+    - name: Show working directory
+      run: pwd
+
+    # Step 3: List parent directory
+    - name: List parent directory
+      run: ls ../
+
+    # Step 4: List current contents
+    - name: List current contents
+      run: ls 
+
+    # Step 5: Build MSP430 project using Docker (Release configuration)
+    - name: Build MSP430 project using Docker
+      run: |
+        docker pull gvigelet/ti_ccs_msp430_build_env:latest
+        docker run --rm -v ./../:/workspace gvigelet/ti_ccs_msp430_build_env:latest /opt/ti/ccs/eclipse/eclipse -noSplash -data /workspace -ccs.autoImport -application com.ti.ccstudio.apps.projectBuild -ccs.projects msp430-test -ccs.configuration Release
+
+    # Step 6: List contents of the Release directory
+    - name: List Release directory contents
+      run: ls ./Release
+    
+    # Step 7: Check if output file exists in the Release directory
+    - name: Check if output file exists
+      run: |
+        if [ ! -f ./Release/msp430-test.out ]; then
+          echo "Build failed: msp430-test.out not found."
+          exit 1
+        else
+          echo "Build passed: msp430-test.out found."
+        fi
+    
+    # Step 8: Get tag name from GITHUB_REF
+    - name: Get tag name
+      id: get_tag
+      run: echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+    # Step 9: Create a new release
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.tag_name }}
+        release_name: Release ${{ env.tag_name }}
+        draft: false
+        prerelease: false
+
+    # Step 10: Upload Release Assets (from Release directory)
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./Release/msp430-test.out   # Adjusted path to match Release directory
+        asset_name: msp430-test.out
+        asset_content_type: application/octet-stream

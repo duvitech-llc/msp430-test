@@ -1,0 +1,44 @@
+name: Build MSP430 Project
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Show working directory
+      run: pwd
+
+    - name: List parent directory
+      run: ls ../
+
+    - name: List current contents
+      run: ls 
+
+    - name: Build MSP430 project using Docker
+      run: |
+        docker pull gvigelet/ti_ccs_msp430_build_env:latest
+        docker run --rm -v ./../:/workspace gvigelet/ti_ccs_msp430_build_env:latest /opt/ti/ccs/eclipse/eclipse -noSplash -data /workspace -ccs.autoImport -application com.ti.ccstudio.apps.projectBuild -ccs.projects msp430-test -ccs.configuration Debug
+
+    - name: List current contents
+      run: ls ./Debug
+  
+    - name: Check if output file exists
+      run: |
+        if [ ! -f ./Debug/msp430-test.out ]; then
+          echo "Build failed: msp430-test.out not found."
+          exit 1
+        else
+          echo "Build passed: msp430-test.out found."
+        fi
